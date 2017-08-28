@@ -23,6 +23,7 @@
 	if vstudio.vs2010_architectures ~= nil then
 		if _ACTION >= "vs2015" then
 			vstudio.vs2010_architectures.arm = "ARM"
+			vstudio.vs2010_architectures.arm64 = "ARM64"
 		else
 			vstudio.vs2010_architectures.android = "Android"
 		end
@@ -51,7 +52,7 @@
 		_p(2, "<RootNamespace>%s</RootNamespace>", cfg.project.name)
 		_p(2, "<MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>")
 		_p(2, "<ApplicationType>Android</ApplicationType>")
-		_p(2, "<ApplicationTypeRevision>1.0</ApplicationTypeRevision>")
+		_p(2, "<ApplicationTypeRevision>%s</ApplicationTypeRevision>", cfg.androidprojectversion or iif(_ACTION == "vs2017", "3.0", "1.0"))
 	end
 
 --
@@ -84,30 +85,44 @@
 	function android.androidStlType(cfg)
 		if cfg.stl ~= nil then
 			if _ACTION >= "vs2015" then
-				local stlType = {
-					["minimal c++ (system)"] = "system",
-					["c++ static"] = "gabi++_static",
-					["c++ shared"] = "gabi++_shared",
-					["stlport static"] = "stlport_static",
-					["stlport shared"] = "stlport_shared",
-					["gnu stl static"] = "gnustl_static",
-					["gnu stl shared"] = "gnustl_shared",
-					["llvm libc++ static"] = "c++_static",
-					["llvm libc++ shared"] = "c++_shared",
-				}
-				_p(2,'<UseOfStl>%s</UseOfStl>', stlType[cfg.stl])
-			else
 				local static = {
-					none       = "none",
-					minimal    = "system",
-					["stdc++"] = "gnustl_static",
-					stlport    = "stlport_static",
+					["none"] = nil,
+					["minimal"] = "system",
+					["c++"] = "gabi++_static",
+					["stlport"] = "stlport_static",
+					["gnu stl"] = "gnustl_static",
+					["llvm libc++"] = "c++_static",
 				}
 				local dynamic = {
-					none       = "none",
-					minimal    = "system",
-					["stdc++"] = "gnustl_dynamic",
-					stlport    = "stlport_dynamic",
+					["none"] = nil,
+					["minimal"] = "system",
+					["c++"] = "gabi++_shared",
+					["stlport"] = "stlport_shared",
+					["gnu stl"] = "gnustl_shared",
+					["llvm libc++"] = "c++_shared",
+				}
+				local stl = iif(cfg.flags.StaticRuntime, static, dynamic);
+				_p(2,'<UseOfStl>%s</UseOfStl>', stl[cfg.stl])
+			else
+				local static = {
+					["none"]    = "none",
+					["minimal"] = "system",
+					["gnu stl"] = "gnustl_static",
+					["stlport"] = "stlport_static",
+
+					-- Translate others to something else
+					["c++"]         = "gnustl_static",
+					["llvm libc++"] = "gnustl_static",
+				}
+				local dynamic = {
+					["none"]    = "none",
+					["minimal"] = "system",
+					["gnu stl"] = "gnustl_dynamic",
+					["stlport"] = "stlport_dynamic",
+
+					-- Translate others to something else
+					["c++"]         = "gnustl_dynamic",
+					["llvm libc++"] = "gnustl_dynamic",
 				}
 				local stl = iif(cfg.flags.StaticRuntime, static, dynamic);
 				_p(2,'<AndroidStlType>%s</AndroidStlType>', stl[cfg.stl])
@@ -195,6 +210,7 @@
 				table.remove(elements, table.indexof(elements, vc2010.debugInformationFormat))
 				table.remove(elements, table.indexof(elements, android.thumbMode))
 				elements = table.join(elements, {
+					android.cStandard,
 					android.cppStandard,
 				})
 			end
@@ -234,9 +250,33 @@
 --		end
 	end
 
+	function android.cStandard(cfg)
+		if cfg.cppdialect == "C89" then
+			_p(3, '<CLanguageStandard>c89</CLanguageStandard>')
+		elseif cfg.cppdialect == "C99" then
+			_p(3, '<CLanguageStandard>c99</CLanguageStandard>')
+		elseif cfg.cppdialect == "C11" then
+			_p(3, '<CLanguageStandard>c11</CLanguageStandard>')
+		elseif cfg.cppdialect == "gnu99" then
+			_p(3, '<CLanguageStandard>gnu99</CLanguageStandard>')
+		elseif cfg.cppdialect == "gnu11" then
+			_p(3, '<CLanguageStandard>gnu11</CLanguageStandard>')
+		end
+	end
+
 	function android.cppStandard(cfg)
-		if cfg.flags["C++11"] then
+		if cfg.cppdialect == "C++98" then
+			_p(3, '<CppLanguageStandard>c++98</CppLanguageStandard>')
+		elseif cfg.cppdialect == "C++11" then
 			_p(3, '<CppLanguageStandard>c++11</CppLanguageStandard>')
+		elseif cfg.cppdialect == "C++14" then
+			_p(3, '<CppLanguageStandard>c++1y</CppLanguageStandard>')
+		elseif cfg.cppdialect == "gnu++98" then
+			_p(3, '<CppLanguageStandard>gnu++98</CppLanguageStandard>')
+		elseif cfg.cppdialect == "gnu++11" then
+			_p(3, '<CppLanguageStandard>gnu++11</CppLanguageStandard>')
+		elseif cfg.cppdialect == "gnu++14" then
+			_p(3, '<CppLanguageStandard>gnu++1y</CppLanguageStandard>')
 		end
 	end
 
