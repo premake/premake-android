@@ -5,6 +5,8 @@
 -- Copyright:   (c) 2013-2015 Manu Evans and the Premake project
 --
 
+	require "vstudio"
+
 	local p = premake
 	local api = p.api
 
@@ -16,12 +18,13 @@
 	p.ANDROIDPROJ = "androidproj"
 
 	api.addAllowed("system", p.ANDROID)
-	api.addAllowed("architecture", { "armv5", "armv7", "aarach64", "mips", "mips64", "arm" })
+	api.addAllowed("architecture", { "armv5", "armv7", "aarach64", "mips", "mips64", "arm", "arm64" })
 	api.addAllowed("vectorextensions", { "NEON", "MXU" })
 	api.addAllowed("flags", { "Thumb" })
 	api.addAllowed("kind", p.ANDROIDPROJ)
 
 	premake.action._list["vs2015"].valid_kinds = table.join(premake.action._list["vs2015"].valid_kinds, { p.ANDROIDPROJ })
+	premake.action._list["vs2017"].valid_kinds = table.join(premake.action._list["vs2017"].valid_kinds, { p.ANDROIDPROJ })
 
 	-- TODO: can I api.addAllowed() a key-value pair?
 	local os = p.fields["os"];
@@ -51,62 +54,52 @@
 		kind = "integer",
 	}
 
-	if _ACTION >= "vs2015" then
-		api.register {
-			name = "toolchainversion",
-			scope = "config",
-			kind = "string",
-			allowed = {
-				"4.9", -- NDK GCC versions
-				"3.6", -- NDK clang versions
-			},
+	api.register {
+		name = "androidprojectversion",
+		scope = "config",
+		kind = "string",
+		allowed = {
+			"1.0",
+			"2.0",
+			"3.0",
 		}
-	else
-		api.register {
-			name = "toolchainversion",
-			scope = "config",
-			kind = "string",
-			allowed = {
-				"4.6", -- NDK GCC versions
-				"4.8",
-				"4.9",
-				"3.4", -- NDK clang versions
-				"3.5",
-				"3.6",
-			},
-		}
-	end
+	}
 
-	if _ACTION >= "vs2015" then
-		api.register {
-			name = "stl",
-			scope = "config",
-			kind = "string",
-			allowed = {
-				"minimal c++ (system)",
-				"c++ static",
-				"c++ shared",
-				"stlport static",
-				"stlport shared",
-				"gnu stl static",
-				"gnu stl shared",
-				"llvm libc++ static",
-				"llvm libc++ shared",
-			},
-		}
-	else
-		api.register {
-			name = "stl",
-			scope = "config",
-			kind = "string",
-			allowed = {
-				"none",
-				"minimal",
-				"stdc++",
-				"stlport",
-			},
-		}
-	end
+	api.register {
+		name = "toolchainversion",
+		scope = "config",
+		kind = "string",
+		allowed = function (value)
+			-- Warn the user of a known invalid option
+			if _ACTION < "vs2015" then
+				if (value >= "4.6" and value <= "4.9") or (value >= "3.4" and value <= "3.6") then
+					p.warn("The provided value might not be supported!")
+				end
+			end
+
+			-- Don't limit the value arbitrarily as the available options
+			-- change between implementations
+			return value
+		end,
+	}
+
+	api.register {
+		name = "stl",
+		scope = "config",
+		kind = "string",
+		allowed = {
+			"none",
+			"minimal",
+			"c++",
+			"stlport",
+			"gnu stl",
+			"stdc++",
+			"llvm libc++",
+		},
+		aliases = {
+			["stdc++"] = "gnu stl",
+		},
+	}
 
 	api.register {
 		name = "thumbmode",
